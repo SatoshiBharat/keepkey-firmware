@@ -32,6 +32,7 @@
 #include "pin_sm.h"
 #include "fsm.h"
 #include "app_layout.h"
+#include <keepkey_usart.h>
 
 /* === Private Variables =================================================== */
 
@@ -297,8 +298,9 @@ const char *get_pin_matrix(void)
 bool pin_protect(char *prompt)
 {
     PINInfo pin_info;
-    char warn_msg_fmt[MEDIUM_STR_BUF];
-    uint32_t failed_cnts = 0, wait = 0;
+//pkhoo    char warn_msg_fmt[MEDIUM_STR_BUF];
+//pkhoo    uint32_t failed_cnts = 0, wait = 0;
+    uint32_t failed_cnts;
     bool ret = false, pre_increment_cnt_flg = true;
 
     if(storage_has_pin())
@@ -308,6 +310,7 @@ bool pin_protect(char *prompt)
          * each subsequent failed attempts */
         if((failed_cnts = storage_get_pin_fails()))
         {
+#if 0 //pkhoo: disabled for debug
             if(failed_cnts > 2)
             {
                 /* snprintf: 36 + 10 (%u) + 1 (NULL) = 47 */
@@ -322,8 +325,8 @@ bool pin_protect(char *prompt)
                     delay_ms_with_callback(ONE_SEC, &animating_progress_handler, 20);
                 }
             }
+#endif
         }
-
         /* Set request type */
         pin_info.type = PinMatrixRequestType_PinMatrixRequestType_Current;
 
@@ -389,6 +392,8 @@ bool change_pin(void)
 {
     bool ret = false;
     PINInfo pin_info_first, pin_info_second;
+
+    dbg_print("pkhoo(%s) ...\n\r", __FUNCTION__);
 
     /* Set request types */
     pin_info_first.type =   PinMatrixRequestType_PinMatrixRequestType_NewFirst;

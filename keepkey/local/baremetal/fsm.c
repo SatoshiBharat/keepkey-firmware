@@ -55,6 +55,8 @@
 #include "recovery.h"
 #include "recovery_cipher.h"
 
+#include <keepkey_usart.h>
+
 /* === Private Variables =================================================== */
 
 static uint8_t msg_resp[MAX_FRAME_SIZE];
@@ -361,6 +363,7 @@ void fsm_msgChangePin(ChangePin *msg)
     bool removal = msg->has_remove && msg->remove;
     bool confirmed = false;
 
+    dbg_print("pkhoo(%s).....  \n\r", __FUNCTION__);
     if(removal)
     {
         if(storage_has_pin())
@@ -419,6 +422,8 @@ void fsm_msgChangePin(ChangePin *msg)
 void fsm_msgWipeDevice(WipeDevice *msg)
 {
     (void)msg;
+
+    dbg_print("pkhoo(%s)... \n\r", __FUNCTION__);
 
     if(!confirm(ButtonRequestType_ButtonRequest_WipeDevice, "Wipe Device",
                 "Do you want to erase your private keys and settings?"))

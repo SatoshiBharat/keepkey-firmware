@@ -30,10 +30,12 @@
 
 /* === Defines ============================================================= */
 
-#define STORAGE_VERSION 1
+#define STORAGE_VERSION 2
 #define PBKDF2_HMAC_SHA512_SALT "TREZORHD"
 
 #define STORAGE_RETRIES 3
+
+#define PFA_BFR_SIZE sizeof(((Storage *)NULL)->pin_failed_attempts)
 
 /* === Functions =========================================================== */
 
@@ -85,5 +87,9 @@ bool storage_has_node(void);
 HDNodeType *storage_get_node(void);
 
 Allocation get_storage_location(void);
+
+uint32_t find_pfa_end(void);
+void re_index_pfa(uint32_t *index);
+void update_pfa_stat(void);
 
 #endif
