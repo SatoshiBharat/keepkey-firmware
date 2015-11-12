@@ -60,6 +60,81 @@ static ConfigFlash shadow_config;
 
 /* === Private Functions =================================================== */
 
+void dump_stor_offset_pkhoo(void) /*pkhoo */
+{
+    dbg_print("Storage has_node Offset =  0x%x : 0x%x\n\r", 
+            offsetof(ConfigFlash, storage.has_node), offsetof(ConfigFlash_v1, storage.has_node));
+    dbg_print("Storage has_passphrase_protection Offset =  0x%x : 0x%x\n\r", 
+            offsetof(ConfigFlash, storage.has_passphrase_protection), offsetof(ConfigFlash_v1, storage.has_passphrase_protection));
+    dbg_print("Storage passphrase_protection Offset =  0x%x : 0x%x\n\r", 
+            offsetof(ConfigFlash, storage.passphrase_protection), offsetof(ConfigFlash_v1, storage.passphrase_protection));
+    dbg_print("Storage has_pin_failed_attempts offset =  0x%x : 0x%x\n\r", 
+            offsetof(ConfigFlash, storage.has_pin_failed_attempts), offsetof(ConfigFlash_v1, storage.has_pin_failed_attempts));
+    dbg_print("Storage pin_failed_attempts Offset =  0x%x : 0x%x\n\r", 
+            offsetof(ConfigFlash, storage.pin_failed_attempts), offsetof(ConfigFlash_v1, storage.pin_failed_attempts));
+    dbg_print("Storage has_pin Offset =  0x%x : 0x%x\n\r", 
+            offsetof(ConfigFlash, storage.has_pin), offsetof(ConfigFlash_v1, storage.has_pin));
+    dbg_print("Storage pin Offset =  0x%x : 0x%x\n\r", 
+            offsetof(ConfigFlash, storage.pin), offsetof(ConfigFlash_v1, storage.pin));
+    dbg_print("Storage Cache Offset =  0x%x : 0x%x\n\r", 
+            offsetof(ConfigFlash, cache), offsetof(ConfigFlash_v1, cache));
+}
+
+/*
+ * upd_storage_v1tov2() - Update version 1 storage to version 2 format
+ *
+ * INPUT
+ *      none
+ * OUTPUT
+ *      none
+ *
+ */
+static void upd_storage_v1tov2(void)
+{
+    ConfigFlash_v1 *stor_config_v1 = (ConfigFlash_v1 *)flash_write_helper(storage_location);
+
+    dump_stor_offset_pkhoo();
+    dbg_print("******************************************************\n\r");
+    dbg_print("Update Storage table V1 to V2 \n\r");
+    dbg_print("******************************************************\n\r");
+
+
+    /*** update "has_node" to  "has_pin_failed_attempts" ***/
+    memcpy(&shadow_config.storage.has_node, &stor_config_v1->storage.has_node, 
+        offsetof(ConfigFlash, storage.has_pin_failed_attempts) - offsetof(ConfigFlash, storage.has_node) + 1);
+
+
+    /*** update "pin_failed_attempts" ***/
+    if(stor_config_v1->storage.pin_failed_attempts <= 0xFF)
+    {
+        shadow_config.storage.pin_failed_attempts[0] =  (uint8_t)(stor_config_v1->storage.pin_failed_attempts);
+    }
+    else
+    {
+        /* saturage pin_failed_attempts to 0xFF;  */  
+        shadow_config.storage.pin_failed_attempts[0] =  0xFF;
+    }
+
+    /*** update "PIN" ***/
+    shadow_config.storage.has_pin =  (uint8_t)(stor_config_v1->storage.has_pin);
+    memcpy(&shadow_config.storage.pin, stor_config_v1->storage.pin, sizeof(shadow_config.storage.pin));
+
+    /*** update "language" ***/
+    shadow_config.storage.has_language =  (uint8_t)(stor_config_v1->storage.has_language);
+    memcpy(&shadow_config.storage.language, stor_config_v1->storage.language, sizeof(shadow_config.storage.language));
+
+    /*** update "label" ***/ 
+    shadow_config.storage.has_label =  (uint8_t)(stor_config_v1->storage.has_label);
+    memcpy(&shadow_config.storage.label, stor_config_v1->storage.label, sizeof(shadow_config.storage.label));
+
+    /*** update "imported" ***/ 
+    shadow_config.storage.has_imported =  (uint8_t)(stor_config_v1->storage.has_imported);
+    memcpy(&shadow_config.storage.imported, &stor_config_v1->storage.imported, sizeof(shadow_config.storage.imported));
+
+    /*** update "cache" ***/
+    memcpy(&shadow_config.cache, &stor_config_v1->cache, sizeof(shadow_config.cache));
+}
+
 /*
  * storage_from_flash() - Copy configuration from storage partition in flash memory to shadow memory in RAM
  *
@@ -75,17 +150,21 @@ static bool storage_from_flash(ConfigFlash *stor_config)
     switch(stor_config->storage.version)
     {
         case 1:
-            //pkhoo : TODO - implement function to copy Ver1 table to Ver2 table
+        {
+            /* update storage V1 to V2 format */
+            upd_storage_v1tov2();
+            break;
+        }
+        case STORAGE_VERSION:
+        {
             memcpy(&shadow_config, stor_config, sizeof(shadow_config));
             update_pfa_stat();
             break;
-        case 2:
-            memcpy(&shadow_config, stor_config, sizeof(shadow_config));
-            update_pfa_stat();
-            break;
-
+        }
         default:
+        {
             return false;
+        }
     }
 
     shadow_config.storage.version = STORAGE_VERSION;
@@ -1178,7 +1257,7 @@ uint32_t find_pfa_end(void)
 }
 
 /*
- * update_pfa_stat() - update PIN failed attempts status
+ * update_pfa_stat() - update PIN failed attempt status
  *
  * INPUT -
  *      none

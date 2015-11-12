@@ -31,6 +31,7 @@
 #include "layout.h"
 #include "timer.h"
 #include "usb_driver.h"
+#include "./keepkey/public/storage.h"
 
 /*
  storage layout:
@@ -86,6 +87,16 @@ typedef struct
     Storage storage;
     Cache cache;
 } ConfigFlash;
+
+/* Config Structures for previous versions */
+
+/* Config flash overlay structure.  */
+typedef struct
+{
+    Metadata meta;
+    Storage_v1 storage;
+    Cache cache;
+} ConfigFlash_v1;
 
 /* === Variables =========================================================== */
 
