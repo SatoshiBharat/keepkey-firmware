@@ -315,12 +315,6 @@ void storage_init(void)
         storage_reset_uuid();
         storage_commit();
     }
-    
-    dbg_print("sizeof pin_failed_attempts = %d\n\r", PFA_BFR_SIZE);
-    dbg_print("pfa ptr Start = 0x%x, pfaEnd = 0%x\n\r", 
-            &stor_config->storage.pin_failed_attempts, &stor_config->storage.has_pin);
-    dbg_print("storVer = 0x%x, F/W storVer = 0x%x\n\r", stor_config->storage.version, STORAGE_VERSION);
-    dbg_print("pfa[] = 0x%x\n\r", shadow_config.storage.pin_failed_attempts[pfa_index]);
 }
 
 /*
@@ -353,18 +347,22 @@ void storage_reset(void)
     // reset storage
     memset(&shadow_config.storage, 0, sizeof(shadow_config.storage));
 
-    dbg_print("pkhoo(%s) : pfa[%d] = 0x%x\n\r", __FUNCTION__, pfa_index, shadow_config.storage.pin_failed_attempts[pfa_index]);
     
-    /* set pin_failed_attempts buffer with 0xFF for future update */
-    memset(shadow_config.storage.pin_failed_attempts, 0xFF, 
+    /* preset pin_failed_attempts buffer for future updates */
+    memset(shadow_config.storage.pin_failed_attempts, STORAGE_PFA_UNUSED, 
                 sizeof(shadow_config.storage.pin_failed_attempts));
 
+    /* Init 1st entry in pfa  */
+    pfa_index = 0;
+    shadow_config.storage.pin_failed_attempts[pfa_index] = 0;
 
     // reset cache
     memset(&shadow_config.cache, 0, sizeof(shadow_config.cache));
 
     shadow_config.storage.version = STORAGE_VERSION;
     session_clear(true); // clear PIN as well
+    dbg_print("pkhoo(%s) : pfa[%d] = 0x%x\n\r", __FUNCTION__, pfa_index, 
+            shadow_config.storage.pin_failed_attempts[pfa_index]);
 }
 
 /*
@@ -401,30 +399,18 @@ void storage_pfa_write(uint32_t index, uint8_t pfa)
     uint32_t offset;
     ConfigFlash *stor_addr;
 
-    /* check end of buffer reached */
-    if(index < PFA_BFR_SIZE - 1)
-    {
-        /* translate to physical address */
-        stor_addr = (ConfigFlash *)flash_write_helper(storage_location);
+    /* translate to physical address */
+    stor_addr = (ConfigFlash *)flash_write_helper(storage_location);
 
-        /* get offset of pin_failed_attempt[index] pointer in the structure */
-        offset = offsetof(ConfigFlash, storage.pin_failed_attempts) + index;
+    /* get offset of pin_failed_attempt[index] pointer in the structure */
+    offset = offsetof(ConfigFlash, storage.pin_failed_attempts) + index;
 
-        dbg_print("pkhoo(%s): stloc=%d (0x%x)\n\r",  __FUNCTION__, storage_location,
-            &stor_addr->storage.pin_failed_attempts[index]);
+    flash_unlock();
+    flash_write(storage_location, offset, 1, &pfa);
+    flash_lock();
 
-        dbg_print("pkhoo(%s): offset = 0x%x, pfa = %d\n\r", __FUNCTION__, offset, pfa);
-
-        flash_unlock();
-        flash_write(storage_location, offset, 1, &pfa);
-        flash_lock();
-    }
-    else
-    {
-        dbg_print("pkhoo(%s) ->storage_commit (pfa wrap - pfaindex = 0x%x)\n\r",  __FUNCTION__, index);
-        storage_commit();
-    }
-
+    dbg_print("pkhoo(%s): stloc=%d, pfa[%d] = 0x%x\n\r",  __FUNCTION__, storage_location,
+            index, &stor_addr->storage.pin_failed_attempts[index]);
 }
 
 /*
@@ -442,9 +428,9 @@ void storage_commit(void)
 
     memcpy((void *)&shadow_config, STORAGE_MAGIC_STR, STORAGE_MAGIC_LEN);
 
+    rewind_pfa_index(&pfa_index);
     dbg_print("%s :  %d\n\r", __FUNCTION__, pfa_index);
-    re_index_pfa(&pfa_index);
-    
+
     for(retries = 0; retries < STORAGE_RETRIES; retries++)
     {
         /* Capture CRC for verification at restore */
@@ -765,17 +751,21 @@ void storage_reset_pin_fails(void)
     {
         shadow_config.storage.has_pin_failed_attempts = false;
 
-        /* don't advance pfa_index for 1st entry */
-        if(pfa_index || shadow_config.storage.pin_failed_attempts[pfa_index] != 0xFF)
-        {
-            pfa_index++;
-        }
-        shadow_config.storage.pin_failed_attempts[pfa_index] = 0;
+        shadow_config.storage.pin_failed_attempts[++pfa_index] = 0;
 
         dbg_print("pkhoo(%s): [%d] = %d\n\r", __FUNCTION__, pfa_index,
                 shadow_config.storage.pin_failed_attempts[pfa_index]);
 
-        storage_pfa_write(pfa_index, shadow_config.storage.pin_failed_attempts[pfa_index]);
+        if(pfa_index < STORAGE_PFA_BFR_SIZE-1)
+        {
+            storage_pfa_write(pfa_index, shadow_config.storage.pin_failed_attempts[pfa_index]);
+        }
+        else
+        {
+            dbg_print("pkhoo(%s) ->storage_commit (pfa wrap - pfaindex = 0x%x)\n\r",  __FUNCTION__, index);
+            storage_commit();
+        }
+
     }
 }
 
@@ -789,36 +779,34 @@ void storage_reset_pin_fails(void)
  */
 void storage_increase_pin_fails(void)
 {
-    char tvar;
-
-
-    if(!shadow_config.storage.has_pin_failed_attempts)
+    /* advance to next index */
+    pfa_index++;
+    if(shadow_config.storage.has_pin_failed_attempts)
     {
-
-        /* advance index for initialized buffer */
-        if(pfa_index || shadow_config.storage.pin_failed_attempts[pfa_index] != 0xFF)
-        {
-            pfa_index++;
-        }
-        shadow_config.storage.has_pin_failed_attempts = true;
-        shadow_config.storage.pin_failed_attempts[pfa_index] = 1;
+        shadow_config.storage.pin_failed_attempts[pfa_index] = 
+            shadow_config.storage.pin_failed_attempts[pfa_index-1] + 1;
     }
     else
     {
-        tvar = shadow_config.storage.pin_failed_attempts[pfa_index] + 1;
-        shadow_config.storage.pin_failed_attempts[++pfa_index] = tvar;
-
+        shadow_config.storage.has_pin_failed_attempts = true;
+        shadow_config.storage.pin_failed_attempts[pfa_index] = 1;
     }
 
-    storage_pfa_write(pfa_index, shadow_config.storage.pin_failed_attempts[pfa_index]);
-
-    dbg_print("pkhoo(%s): [%d]=%d\n\r", __FUNCTION__,
-                pfa_index,
+    dbg_print("pkhoo(%s): [%d]=%d\n\r", __FUNCTION__, pfa_index,
                 shadow_config.storage.pin_failed_attempts[pfa_index]);
+
+    if(pfa_index < STORAGE_PFA_BFR_SIZE - 1)
+    {
+        storage_pfa_write(pfa_index, shadow_config.storage.pin_failed_attempts[pfa_index]);
+    }
+    else
+    {
+        storage_commit();
+    }
 }
 
 /*
- * storage_get_pin_fails() - Get number PIN failures
+ * storage_get_pin_fails() - Get number of PIN failures
  *
  * INPUT
  *     none
@@ -827,15 +815,14 @@ void storage_increase_pin_fails(void)
  */
 uint32_t storage_get_pin_fails(void)
 {
-#if 1 //pkhoo
-    dbg_print("pkhoo(%s): [%d]=%d\n\r", __FUNCTION__, pfa_index, 
-            shadow_config.storage.has_pin_failed_attempts ?  
-            shadow_config.storage.pin_failed_attempts[pfa_index] : 0);
+    uint32_t ret_val = 0;
 
-    return shadow_config.storage.has_pin_failed_attempts ?  shadow_config.storage.pin_failed_attempts[pfa_index] : 0;
-#else
-    return shadow_config.storage.has_pin_failed_attempts ?  shadow_config.storage.pin_failed_attempts : 0;
-#endif
+    if(shadow_config.storage.has_pin_failed_attempts)
+    {
+        ret_val = shadow_config.storage.pin_failed_attempts[pfa_index];
+    }
+    dbg_print("pkhoo(%s): [%d]=%d\n\r", __FUNCTION__, pfa_index, ret_val);
+    return(ret_val);
 }
 
 /*
@@ -1191,36 +1178,39 @@ Allocation get_storage_location(void)
 
 
 /*
- * re_index_pfa() - Reset index for pin_failed_attempts[] for wearlevel shift
+ * rewind_pfa_index() - Reset index for pin_failed_attempts[] for wearlevel shift
  *
  * INPUT
  *      porinter to pfa currect index
  * OUTPUT
  *      none
  */
-
-void re_index_pfa(uint32_t *index)
+void rewind_pfa_index(uint32_t *index)
 {
     char tvar;
 
     dbg_print("pkhoo(%s): [%d] = 0x%x\n\r", __FUNCTION__, *index, shadow_config.storage.pin_failed_attempts[*index]);
+
     tvar = shadow_config.storage.pin_failed_attempts[*index];
-    if(tvar > 0 && tvar < 0xFF)
+    if(tvar > 0 && tvar <= STORAGE_PFA_MAX)
     {
         shadow_config.storage.has_pin_failed_attempts = true;
     }
-    /* set pin_failed_attempts bits to 1's for future update */
-    memset(shadow_config.storage.pin_failed_attempts, 0xFF, 
+    else
+    {
+        shadow_config.storage.has_pin_failed_attempts = false;
+    }
+    /* set pin_failed_attempts buffer for future updates */
+    memset(shadow_config.storage.pin_failed_attempts, STORAGE_PFA_UNUSED, 
                 sizeof(shadow_config.storage.pin_failed_attempts));
 
     /*reset the index for next sector */
     *index = 0;
     shadow_config.storage.pin_failed_attempts[*index] = tvar;
-
 }
 
 /*
- * find_pfa_end - Find last "pin_failed_attempts" in the link list buffer 
+ * find_pfa_index - Find last valid "pin_failed_attempts" in the link list buffer 
  *
  * INPUT -
  *      none
@@ -1228,26 +1218,23 @@ void re_index_pfa(uint32_t *index)
  *      none
  *
  */
-uint32_t find_pfa_end(void)
+uint32_t find_pfa_index(void)
 {
-    uint32_t loc_index, ret_index;
+    uint32_t ret_index = 0, loc_index;
     uint8_t *start_addr = (uint8_t *)shadow_config.storage.pin_failed_attempts;
 
-    /*find last entry in the list */
-    for(ret_index = loc_index = 0; loc_index < sizeof(shadow_config.storage.pin_failed_attempts); loc_index++)
+    /*find valid entry at end of the pfa linklist*/
+    for(loc_index = 0; loc_index < STORAGE_PFA_BFR_SIZE; loc_index++)
     {
-        dbg_print("pkhoo(%s): 0x%x (%d : %d) = 0%x\n\r", __FUNCTION__, 
-                start_addr, loc_index, ret_index, *(uint8_t *)(start_addr + loc_index));
-
-        /* verify the loc_index is beyond assigned length */
-        if(*(uint8_t *)(start_addr + loc_index) == 0xFF)
+        if(*(start_addr + loc_index) == STORAGE_PFA_UNUSED)
         {
-            /* error: found end of pin buffer*/
+            /* found last pfa entry */
             break;
         }
         ret_index = loc_index;
     }
-    if(loc_index >= sizeof(shadow_config.storage.pin_failed_attempts))
+
+    if(loc_index >= STORAGE_PFA_BFR_SIZE)
     {
         ret_index = 0xFF;
     }
@@ -1267,23 +1254,27 @@ uint32_t find_pfa_end(void)
  */
 void update_pfa_stat(void)
 {
+
     /* update pfa_index */
-    pfa_index  = find_pfa_end();
+    pfa_index  = find_pfa_index();
 
     dbg_print("pkhoo(%s): pfa_index = %d\n\r", __FUNCTION__, pfa_index);
 
-    /* update pfa status */
-    if(pfa_index == 0)
+    if(pfa_index == 0xFF)
     {
-        if(shadow_config.storage.pin_failed_attempts[pfa_index] == 0 || 
-            shadow_config.storage.pin_failed_attempts[pfa_index] == 0xFF)
-        {
-            shadow_config.storage.has_pin_failed_attempts = false; 
-        }
+        /* something bad has happened. Stay here!!! */
+        system_halt();
+    }
+
+    /* update pfa status */
+    if(shadow_config.storage.pin_failed_attempts[pfa_index])
+    {
+        /* PIN error exist */
+        shadow_config.storage.has_pin_failed_attempts = true; 
     }
     else
     {
-        shadow_config.storage.has_pin_failed_attempts = true;
+        /* no PIN error so far */
+        shadow_config.storage.has_pin_failed_attempts = false; 
     }
-
 }
