@@ -331,9 +331,18 @@ bool pin_protect(char *prompt)
         if(pin_request(prompt, &pin_info))
         {
 
-            /* preincrement the failed counter before authentication*/
-            storage_increase_pin_fails();
-            pre_increment_cnt_flg = (failed_cnts >= storage_get_pin_fails());
+            /* preincrement PIN failed counter to STORAGE_PFA_MAX, which translates 
+             * to 68 years delay.  No need to make it any longer!!!
+			 */
+            if(failed_cnts < STORAGE_PFA_MAX)
+            {
+                storage_increase_pin_fails();
+                pre_increment_cnt_flg = (failed_cnts >= storage_get_pin_fails());
+            }
+            else
+            {
+                pre_increment_cnt_flg = false;
+            }
 
             /* authenticate user PIN */
             if(storage_is_pin_correct(pin_info.pin) && !pre_increment_cnt_flg)

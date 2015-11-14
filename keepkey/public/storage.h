@@ -36,7 +36,8 @@
 #define STORAGE_RETRIES 3
 
 #define STORAGE_PFA_BFR_SIZE sizeof(((Storage *)NULL)->pin_failed_attempts)
-#define STORAGE_PFA_MAX         0xFE
+#define STORAGE_PFA_MAX         0x1F  
+#define STORAGE_PFA_ERROR       0xE0
 #define STORAGE_PFA_UNUSED      0xFF  
 
 /* === Functions =========================================================== */
@@ -90,6 +91,4 @@ HDNodeType *storage_get_node(void);
 
 Allocation get_storage_location(void);
 
-void rewind_pfa_index(uint32_t *index);
-void update_pfa_stat(void);
 #endif
