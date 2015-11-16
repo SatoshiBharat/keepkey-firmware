@@ -88,8 +88,6 @@ typedef struct
 } ConfigFlash;
 
 /* Config Structures for previous versions */
-
-/* Config flash overlay structure.  */
 typedef struct
 {
     Metadata meta;

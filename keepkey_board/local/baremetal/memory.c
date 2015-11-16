@@ -30,7 +30,6 @@
 #include "keepkey_board.h"
 #include "memory.h"
 #include "keepkey_flash.h"
-#include <keepkey_usart.h>
 
 /* === Functions =========================================================== */
 
@@ -155,8 +154,6 @@ bool find_active_storage(Allocation *storage_location)
             break;
         }
     }
-
-    dbg_print("storage_location = 0x%x\n\r", *storage_location);
 
     return(ret_stat);
 }

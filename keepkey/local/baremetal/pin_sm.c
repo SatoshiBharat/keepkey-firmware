@@ -311,7 +311,7 @@ bool pin_protect(char *prompt)
             if(failed_cnts > 2)
             {
                 /* snprintf: 36 + 10 (%u) + 1 (NULL) = 47 */
-                snprintf(warn_msg_fmt, MEDIUM_STR_BUF, "Previous PIN Failures: Wait %u Seconds",
+                    snprintf(warn_msg_fmt, MEDIUM_STR_BUF, "Previous PIN Failures: Wait %u Seconds",
                          1u << failed_cnts);
                 layout_warning(warn_msg_fmt);
 
@@ -331,8 +331,8 @@ bool pin_protect(char *prompt)
         if(pin_request(prompt, &pin_info))
         {
 
-            /* preincrement PIN failed counter to STORAGE_PFA_MAX, which translates 
-             * to 68 years delay.  No need to make it any longer!!!
+            /* Preincrement the failed counter before authentication.
+             * (limit the counter to STORAGE_PFA_MAX, which translates to 68 years delay)
 			 */
             if(failed_cnts < STORAGE_PFA_MAX)
             {
