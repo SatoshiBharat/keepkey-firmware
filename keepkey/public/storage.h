@@ -37,7 +37,7 @@
 
 #define STORAGE_PFA_BFR_SIZE sizeof(((Storage *)NULL)->pin_failed_attempts)
 #define STORAGE_PFA_MAX         0x1F  
-#define STORAGE_PFA_ERROR       0xE0
+#define STORAGE_PFA_ERROR       0xD0
 #define STORAGE_PFA_UNUSED      0xFF  
 
 /* === Functions =========================================================== */

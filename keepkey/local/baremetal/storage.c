@@ -104,18 +104,17 @@ static void upd_storage_v1tov2(void)
 
     /*** update variables,"has_node" to "has_passphrase_protection" ***/
     memcpy(&shadow_config.storage.has_node, &stor_config_v1->storage.has_node, 
-        offsetof(ConfigFlash, storage.has_pin_failed_attempts) - offsetof(ConfigFlash, storage.has_node) + 1);
-
+        offsetof(ConfigFlash_v1, storage.has_pin_failed_attempts) - offsetof(ConfigFlash_v1, storage.has_node) + 1);
     pfa_index = 0;
     /*** update "pin_failed_attempts" ***/
-    if(stor_config_v1->storage.pin_failed_attempts <= 0xFF)
+    if(stor_config_v1->storage.pin_failed_attempts <= STORAGE_PFA_MAX)
     {
         shadow_config.storage.pin_failed_attempts[pfa_index] = (uint8_t)(stor_config_v1->storage.pin_failed_attempts);
     }
     else
     {
-        /* saturage pin_failed_attempts to 0xFF;  */  
-        shadow_config.storage.pin_failed_attempts[pfa_index] =  0xFF;
+        /* saturage pin_failed_attempts to STORAGE_PFA_MAX  */  
+        shadow_config.storage.pin_failed_attempts[pfa_index] = STORAGE_PFA_MAX;
     }
 
     /*** update "PIN" ***/
