@@ -3,11 +3,3 @@ Storage.pin_failed_attempts     max_size:225
 Storage.pin                     max_size:10
 Storage.language                max_size:17
 Storage.label                   max_size:33
-
-//
-// Previously released version of Storage
-//
-Storage_v1.mnemonic                max_size:241
-Storage_v1.pin                     max_size:10
-Storage_v1.language                max_size:17
-Storage_v1.label                   max_size:33

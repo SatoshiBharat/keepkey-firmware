@@ -31,6 +31,7 @@
 #include "layout.h"
 #include "timer.h"
 #include "usb_driver.h"
+#include "keepkey/public/storage.h"
 
 /*
  storage layout:

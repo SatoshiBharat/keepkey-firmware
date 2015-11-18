@@ -40,6 +40,32 @@
 #define STORAGE_PFA_ERROR       0xD0
 #define STORAGE_PFA_UNUSED      0xFF  
 
+/* === Typedefs ============================================================ */
+
+/**
+ * Internal persistent storage of device
+ * (Archive for previous versions of storage struct)
+ */
+typedef struct _Storage_v1 
+{
+    uint32_t version;
+    bool has_node;
+    HDNodeType node;
+    bool has_mnemonic;
+    char mnemonic[241];
+    bool has_passphrase_protection;
+    bool passphrase_protection;
+    bool has_pin_failed_attempts;
+    uint32_t pin_failed_attempts;
+    bool has_pin;
+    char pin[10];
+    bool has_language;
+    char language[17];
+    bool has_label;
+    char label[33];
+    bool has_imported;
+    bool imported;
+}Storage_v1;
 /* === Functions =========================================================== */
 
 void storage_init(void);
