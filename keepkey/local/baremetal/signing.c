@@ -32,7 +32,9 @@
 #include "coins.h"
 #include "home_sm.h"
 #include "app_confirm.h"
+#include <keepkey_usart.h>
 
+#define MULTI_CHANGE_OUTPUT      1
 /* === Private Variables =================================================== */
 
 static uint32_t inputs_count;
@@ -376,7 +378,14 @@ void signing_txack(TransactionType *tx)
 			    tx->outputs[0].address_n_count > 0) {
 				is_change = true;
 			}
+#if MULTI_CHANGE_OUTPUT      
 
+			if (is_change) 
+                        {
+                            /* allow multiple change output */
+			    change_spend += tx->outputs[0].amount;
+			}
+#else
 			if (is_change) {
 				if (change_spend == 0) { // not set
 					change_spend = tx->outputs[0].amount;
@@ -386,6 +395,7 @@ void signing_txack(TransactionType *tx)
 					return;
 				}
 			}
+#endif
 
 			spending += tx->outputs[0].amount;
 			co = compile_output(coin, root, tx->outputs, &bin_output, !is_change);
