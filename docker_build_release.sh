@@ -5,10 +5,10 @@ echo "* You are about to build a release version of KeepKey firmware. The *"
 echo "* resulting bootloader image will memory protect the flash on your  *"
 echo "* device, so please use it with extreme care.                       *"
 echo "*********************************************************************"
-read -p "Are you sure you want to continue? " -n 1 -r
-echo    # (optional) move to a new line
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
+# read -p "Are you sure you want to continue? " -n 1 -r
+# echo    # (optional) move to a new line
+# if [[ $REPLY =~ ^[Yy]$ ]]
+# then
 
 IMAGETAG=keepkey/firmware
 
@@ -23,6 +23,8 @@ docker run -t -v $(pwd):/root/keepkey-firmware --rm $IMAGETAG /bin/sh -c "\
   echo '*********************************************************************' && \
   echo '* KeepKey Application Fingerprint                                   *' && \
   echo '*********************************************************************' && \
+  cat build/arm-none-gnu-eabi/release/bin/keepkey_main.bin | sha256sum && \
+  bootloader/firmware_sign.py -f build/arm-none-gnu-eabi/release/bin/keepkey_main.bin && \
   cat build/arm-none-gnu-eabi/release/bin/keepkey_main.bin | sha256sum"
 
-fi
+# fi
